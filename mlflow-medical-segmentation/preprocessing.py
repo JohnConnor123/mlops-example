@@ -1,5 +1,6 @@
 # flake8: noqa: F401
 import os
+import subprocess
 
 import albumentations as A
 import albumentations.augmentations.functional as F
@@ -14,11 +15,20 @@ URL = "https://www.dropbox.com/s/8lqrloi0mxj2acu/PH2Dataset.rar"
 
 
 def download_dataset(url):
-    os.system(f"wget -P mlflow\\Files -c {URL}")
+    subprocess.run(
+        [f"wget", "-P", "mlflow\\Files", "-c", URL], capture_output=True, text=True
+    )
+
     if not os.path.exists(".\\mlflow\\Files\\PH2Dataset"):
-        os.system(
-            'c:\\"Program Files"\\WinRAR\\unrar.exe x '
-            ".\\mlflow\\Files\\PH2Dataset.rar .\\mlflow\\Files\\"
+        subprocess.run(
+            [
+                f"c:\\Program Files\\WinRAR\\unrar.exe",
+                "x",
+                ".\\mlflow\\Files\\PH2Dataset.rar",
+                ".\\mlflow\\Files\\",
+            ],
+            capture_output=True,
+            text=True,
         )
 
     images = []
@@ -83,6 +93,11 @@ def dataset_augmentations(X, Y):
 
     val_transforms = A.Compose([])
 
+    ix = np.random.choice(len(X), len(X), False)
+    # tr = 100, val = 150 - 100, ts = len(ix) - 100 - (150 - 100) = 50
+    tr, val, ts = np.split(ix, [100, 150])
+    # print("train:", len(tr), "\nval:", len(val), "\ntest:", len(ts))
+
     train_dataset = SegmentationDataset(
         images=X[tr], masks=np.expand_dims(Y[tr], axis=3), transforms=train_transforms
     )
@@ -102,14 +117,11 @@ def dataset_augmentations(X, Y):
     return train_dataloader, val_dataloader, test_dataloader
 
 
-if __name__ == "__main__":
+def preprocess_data():
     X, Y = download_dataset(URL)
 
-    ix = np.random.choice(len(X), len(X), False)
-    tr, val, ts = np.split(ix, [100, 150])
-    print("train:", len(tr), "\nval:", len(val), "\ntest:", len(ts))
+    return dataset_augmentations(X, Y)
 
-    train_dataloader, val_dataloader, test_dataloader = dataset_augmentations(X, Y)
-    print(
-        "train:", train_dataloader, "\nval:", val_dataloader, "\ntest:", test_dataloader
-    )
+
+if __name__ == "__main__":
+    preprocess_data()

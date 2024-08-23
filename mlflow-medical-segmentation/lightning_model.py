@@ -2,6 +2,8 @@
 from time import time
 
 import lightning as L
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torchmetrics
 from torch.optim.lr_scheduler import ExponentialLR, ReduceLROnPlateau
@@ -11,11 +13,11 @@ from torchvision.transforms import ToTensor
 class MyLightningModel(L.LightningModule):
     """Класс обертка для подсчета метрик"""
 
-    def __init__(self, model=None, lr=1e-3):
+    def __init__(self, model=None, lr=1e-3, loss_fn=None):
         super().__init__()
         self.model = model
         self.example_input_array = torch.ones((1, 3, 256, 256))
-        self.loss_fn = None
+        self.loss_fn = loss_fn
         self.lr = lr
         self.IoU = torchmetrics.classification.MulticlassJaccardIndex(num_classes=2)
 
