@@ -16,16 +16,18 @@ URL = "https://www.dropbox.com/s/8lqrloi0mxj2acu/PH2Dataset.rar"
 
 def download_dataset(url):
     subprocess.run(
-        [f"wget", "-P", "mlflow\\Files", "-c", URL], capture_output=True, text=True
+        [f"wget", "-P", "mlflow-medical-segmentation\\Files", "-c", URL],
+        capture_output=True,
+        text=True,
     )
 
-    if not os.path.exists(".\\mlflow\\Files\\PH2Dataset"):
+    if not os.path.exists(".\\mlflow-medical-segmentation\\Files\\PH2Dataset"):
         subprocess.run(
             [
                 f"c:\\Program Files\\WinRAR\\unrar.exe",
                 "x",
-                ".\\mlflow\\Files\\PH2Dataset.rar",
-                ".\\mlflow\\Files\\",
+                ".\\mlflow-medical-segmentation\\Files\\PH2Dataset.rar",
+                ".\\mlflow-medical-segmentation\\Files\\",
             ],
             capture_output=True,
             text=True,
@@ -33,7 +35,7 @@ def download_dataset(url):
 
     images = []
     lesions = []
-    root_dir = "mlflow\\Files\\PH2Dataset"
+    root_dir = "mlflow-medical-segmentation\\Files\\PH2Dataset"
 
     for root, _dirs, files in os.walk(os.path.join(root_dir, "PH2 Dataset images")):
         if root.endswith("_Dermoscopic_Image"):
