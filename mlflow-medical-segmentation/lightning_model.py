@@ -3,6 +3,7 @@ from time import time
 
 import lightning as L
 import matplotlib.pyplot as plt
+import mlflow
 import numpy as np
 import torch
 import torchmetrics
@@ -31,12 +32,20 @@ class MyLightningModel(L.LightningModule):
         loss = self.loss_fn(outputs, y)
 
         y_pred = torch.where(outputs < 0, 0, 1)
+
+        metrics = {
+            "train_loss": loss.mean(),
+            "train_IoU": self.IoU(y_pred, y),
+            "lr": self.optimizers().optimizer.param_groups[0]["lr"],
+        }
+
         self.log_dict(
-            {"train_loss": loss.mean(), "train_IoU": self.IoU(y_pred, y)},
+            metrics,
             prog_bar=True,
             on_step=True,
             on_epoch=True,
         )
+        mlflow.log_metrics(metrics=metrics, step=self.global_step)
 
         return loss.mean()
 
@@ -49,12 +58,20 @@ class MyLightningModel(L.LightningModule):
             loss = self.loss_fn(outputs, y)
 
         y_pred = torch.where(outputs < 0, 0, 1)
+
+        metrics = {
+            "val_loss": loss.mean(),
+            "val_IoU": self.IoU(y_pred, y),
+            "lr": self.optimizers().optimizer.param_groups[0]["lr"],
+        }
+
         self.log_dict(
-            {"val_loss": loss.mean(), "val_IoU": self.IoU(y_pred, y)},
+            metrics,
             prog_bar=True,
             on_step=True,
             on_epoch=True,
         )
+        mlflow.log_metrics(metrics=metrics, step=self.global_step)
 
         if self.current_epoch % 10 == 0 and batch_idx == 0:
             self.visualise_metrics(X, y, y_pred)
@@ -102,8 +119,7 @@ class MyLightningModel(L.LightningModule):
         buffer = fig.canvas.buffer_rgba()
         img_array = np.frombuffer(buffer, dtype=np.uint8)
         img_array = img_array.reshape(fig.canvas.get_width_height()[::-1] + (4,))
-        image_tensor = ToTensor()(img_array)
 
-        self.logger.experiment.add_image(
-            "Predictions at val_loader", image_tensor, self.global_step
+        mlflow.log_image(
+            key="Predictions at val_loader", image=img_array, step=self.global_step
         )

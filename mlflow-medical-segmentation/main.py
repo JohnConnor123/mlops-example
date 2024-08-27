@@ -1,7 +1,10 @@
 # flake8: noqa: F401
 import warnings
 
+import mlflow
 import lightning as L
+import mlflow.data.dataset
+import mlflow.data.filesystem_dataset_source
 import losses
 import torch
 import torchmetrics
@@ -41,7 +44,7 @@ def score_model(model, metric, data):
 
 def init_tensorboard():
     tracking_address = (
-        "mlflow-medical-segmentation\\tb_logs"  # the path of your log file.
+        "mlflow-medical-segmentation\\logs\\tb_logs"  # the path of your log file.
     )
     tb = program.TensorBoard()
     tb.configure(argv=[None, "--logdir", tracking_address])
@@ -50,9 +53,8 @@ def init_tensorboard():
 
 
 if __name__ == "__main__":
-    init_tensorboard()
     logger = TensorBoardLogger(
-        "mlflow-medical-segmentation\\tb_logs",
+        "mlflow-medical-segmentation\\logs\\tb_logs",
         name="SegNet_1.77M bce_loss.pth",
         log_graph=False,
     )
@@ -65,6 +67,7 @@ if __name__ == "__main__":
     segnet_bce_loss = L.Trainer(
         max_epochs=max_epochs,
         logger=logger,
+        enable_checkpointing=False,
         log_every_n_steps=1,
         callbacks=[
             LearningRateMonitor(logging_interval="epoch"),
@@ -75,19 +78,50 @@ if __name__ == "__main__":
                 patience=max_epochs,
                 verbose=1,
             ),
-            ModelCheckpoint(monitor="val_IoU_epoch"),
         ],
     )  # сохраняю стату каждый батч
 
-    segnet_bce_loss.fit(
-        model=model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader
-    )
+    mlflow.enable_system_metrics_logging()  # CPU/GPU usage, etc
+    mlflow.set_tracking_uri("http://localhost:5000")  # логи
+    mlflow.set_registry_uri(
+        "sqlite:///mlflow-medical-segmentation/logs/mlflow-registry/mlflow.db"
+    )  # база данных
+    # mlflow.create_experiment(name="first-experiment")
+    mlflow.set_experiment("first-experiment")
 
-    segnet_bce_loss.save_checkpoint(
-        "mlflow-medical-segmentation\\outputs\\\
-            SegNet 1.77M_params bce_loss val_iou=0.856 test_iou=0.895\
-              lr=1.5e-3 patience=13 gamma=0.2 large_augmentation.ckpt"
-    )
+    with mlflow.start_run(description="Some description", tags={"status": "pending"}):
+        # mlflow.set_tag("status", "pending")
+
+        example_image = list(iter(train_dataloader))[0][0][0]
+        example_image = example_image.reshape(1, *example_image.shape)
+        signature = mlflow.models.infer_signature(
+            model_input=example_image.detach().numpy(),
+            model_output=model(example_image).detach().numpy(),
+        )
+
+        segnet_bce_loss.fit(
+            model=model,
+            train_dataloaders=train_dataloader,
+            val_dataloaders=val_dataloader,
+        )
+
+        segnet_bce_loss.save_checkpoint(
+            r"mlflow-medical-segmentation\\outputs\\\SegNet 1.77M params bce_loss.ckpt"
+        )
+
+        mlflow.log_artifact(
+            r"mlflow-medical-segmentation\\outputs\\\SegNet 1.77M params bce_loss.ckpt"
+        )
+
+        # Log the model
+        mlflow.pytorch.log_model(
+            model,
+            artifact_path="artifact-folder/LightningModel artifact",
+            input_example=example_image.detach().numpy(),
+            signature=signature,
+            registered_model_name="Tracking model final",
+        )
+
     print(
         "val_iou:",
         score_model(
