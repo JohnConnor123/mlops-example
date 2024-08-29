@@ -1,6 +1,7 @@
 # flake8: noqa: F401
 import warnings
 
+import mlflow
 import lightning as L
 import losses
 import torch
@@ -41,7 +42,7 @@ def score_model(model, metric, data):
 
 def init_tensorboard():
     tracking_address = (
-        "mlflow-medical-segmentation\\tb_logs"  # the path of your log file.
+        "mlflow-medical-segmentation\\logs\\tb_logs"  # the path of your log file.
     )
     tb = program.TensorBoard()
     tb.configure(argv=[None, "--logdir", tracking_address])
@@ -50,9 +51,12 @@ def init_tensorboard():
 
 
 if __name__ == "__main__":
-    init_tensorboard()
+    # --------------------------------
+    mlflow.pytorch.autolog()
+    # --------------------------------
+    # init_tensorboard() # не включаю, т.к. борда нужна как заглушка для параметра logger трейнера
     logger = TensorBoardLogger(
-        "mlflow-medical-segmentation\\tb_logs",
+        "mlflow-medical-segmentation\\logs\\tb_logs",
         name="SegNet_1.77M bce_loss.pth",
         log_graph=False,
     )
@@ -79,15 +83,22 @@ if __name__ == "__main__":
         ],
     )  # сохраняю стату каждый батч
 
-    segnet_bce_loss.fit(
-        model=model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader
-    )
+    # ---------------------------------------------------------------
+    mlflow.set_tracking_uri("http://localhost:5000")  # https (и file) не работают
+    # не имеет эффекта, т.к. в настройках mlflow server указан путь для артифактов
+    # mlflow.set_registry_uri("sqlite:///mlflow-medical-segmentation/logs/mlflow.db")
+    mlflow.enable_system_metrics_logging()
+    mlflow.set_experiment("second experiment")
+    mlflow.set_experiment_tags({"status": "pending"})
 
-    segnet_bce_loss.save_checkpoint(
-        "mlflow-medical-segmentation\\outputs\\\
-            SegNet 1.77M_params bce_loss val_iou=0.856 test_iou=0.895\
-              lr=1.5e-3 patience=13 gamma=0.2 large_augmentation.ckpt"
-    )
+    with mlflow.start_run(description="My some description"):
+        segnet_bce_loss.fit(
+            model=model,
+            train_dataloaders=train_dataloader,
+            val_dataloaders=val_dataloader,
+        )
+    # ---------------------------------------------------------------
+
     print(
         "val_iou:",
         score_model(
