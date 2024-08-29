@@ -110,6 +110,10 @@ if __name__ == "__main__":
         )
 
         mlflow.log_artifact(
+            local_path="mlflow-medical-segmentation\\main.py",
+            artifact_path="source code",
+        )
+        mlflow.log_artifact(
             r"mlflow-medical-segmentation\\outputs\\\SegNet 1.77M params bce_loss.ckpt"
         )
 
