@@ -97,6 +97,11 @@ if __name__ == "__main__":
             train_dataloaders=train_dataloader,
             val_dataloaders=val_dataloader,
         )
+
+        mlflow.log_artifact(
+            local_path="mlflow-medical-segmentation\\main.py",
+            artifact_path="source code",
+        )
     # ---------------------------------------------------------------
 
     print(
